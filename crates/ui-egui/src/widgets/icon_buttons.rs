@@ -5,7 +5,9 @@ use super::{Color32, CornerRadius, Rect, Response, Sense, Stroke, Tokens, Ui, ic
 /// A dialog's primary button (OK, Save, Close): the accent fill with `on_accent` text, per theme.
 pub fn primary_button(ui: &Ui, text: impl Into<String>) -> egui::Button<'static> {
     let t = Tokens::get(ui.ctx());
-    egui::Button::new(egui::RichText::new(text.into()).color(t.on_accent)).fill(t.accent)
+    let b = egui::Button::new(egui::RichText::new(text.into()).color(t.on_accent)).fill(t.accent);
+    // Pure edition: the one main action at a steady size, with no outline of its own.
+    if crate::pure::ON { b.min_size(crate::pure::DIALOG_BUTTON).stroke(egui::Stroke::NONE) } else { b }
 }
 
 /// A frameless 22 px icon button (pane close buttons): ribbon-style hover and press feedback.
@@ -111,6 +113,9 @@ pub fn icon_menu_item(ui: &mut Ui, icon: &str, text: &str, shortcut: &str, min_w
 /// A strip of dialog tabs. The active tab joins the page below it.
 /// Returns the index of the tab the user clicked.
 pub fn dialog_tabs(ui: &mut Ui, labels: &[String], selected: usize) -> Option<usize> {
+    if crate::pure::ON {
+        return crate::pure::dialog_tabs(ui, labels, selected);
+    }
     const H: f32 = 26.0;
     let t = Tokens::get(ui.ctx());
     let page = ui.visuals().window_fill;

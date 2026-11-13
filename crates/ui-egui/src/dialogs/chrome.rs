@@ -52,6 +52,7 @@ fn place_dialog<'a>(ctx: &egui::Context, id: egui::Id, w: egui::Window<'a>) -> e
     let w = w.pivot(egui::Align2::CENTER_TOP);
     match ctx.data(|d| d.get_temp::<(egui::Id, u8)>(dialog_top_key())) {
         Some((open, frames)) if open == id && frames >= DIALOG_CENTRED_FRAMES => w,
+        _ if crate::pure::ON => w.anchor(egui::Align2::CENTER_CENTER, vec2(0.0, crate::pure::dialog_offset(ctx, id))),
         _ => w.anchor(egui::Align2::CENTER_CENTER, vec2(0.0, -40.0)),
     }
 }
@@ -219,14 +220,32 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
         Dialog::Layout(d) => d.title(),
     };
     let id = egui::Id::unique(("dialog", title));
-    let window = crate::window_close::window(ctx, egui::Window::new(tl!(title)).id(id).collapsible(false).resizable(false));
+    let window = if crate::pure::ON {
+        egui::Window::new(tl!(title)).id(id).collapsible(false).resizable(false).title_bar(false).frame(crate::pure::dialog_frame(&ctx.global_style()))
+    } else {
+    crate::window_close::window(ctx, egui::Window::new(tl!(title)).id(id).collapsible(false).resizable(false))
+    };
+    let mut header_closed = false;
     // A file browser or Colors dialog it opened is above it and takes the keys: Escape or Enter
     // there doesn't also cancel or OK this one.
     let held = (app.file_browser_open() || app.colors.is_some()).then(|| ctx.input_mut(|i| std::mem::take(&mut i.events)));
     let shown = place_dialog(ctx, id, window).show(ctx, |ui| {
+        if crate::pure::ON {
+            let top = ui.cursor().min;
+            ui.add_space(crate::pure::DIALOG_HEADER);
+            egui::Frame::NONE.inner_margin(crate::pure::DIALOG_MARGIN).show(ui, |ui| {
+                ui.set_min_width(340.0);
+                crate::pure::dialog_spacing(ui);
+                close = crate::rtl::root(ui, |ui| body(app, ui, &mut d));
+            });
+            let header = egui::Rect::from_min_size(top, vec2(ui.min_rect().width(), crate::pure::DIALOG_HEADER));
+            header_closed = crate::pure::dialog_header(ui, header, tl!(title), crate::rtl::on());
+            return;
+        }
         ui.set_min_width(340.0);
         close = crate::rtl::root(ui, |ui| body(app, ui, &mut d));
     });
+    close |= header_closed;
     if let Some(events) = held {
         ctx.input_mut(|i| i.events = events);
     }
@@ -247,7 +266,9 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
             });
         }
         count_dialog_frame(ctx, id);
+        if !crate::pure::ON {
         close |= crate::window_close::show(ctx, &shown.response, &Tokens::get(ctx));
+        }
         // A file browser it opened (Attach…, Browse…) stays above it.
         if d.is_modal() && !close && !app.file_browser_open() {
             block_behind(app, ctx, &shown.response);
@@ -273,18 +294,24 @@ pub(crate) fn cancel_key_pressed(ui: &Ui) -> bool {
 /// macOS puts Cancel left of the default OK button; Windows and Linux put OK left of Cancel.
 /// Returns `(ok, cancel)` responses. Call inside a right-to-left layout.
 pub(crate) fn ok_cancel_responses(ui: &mut Ui, draw_ok: impl FnOnce(&mut Ui) -> egui::Response, cancel: &str) -> (egui::Response, egui::Response) {
+    // Pure edition: Cancel at the same steady size as the primary button beside it.
+    let cancel_button = |ui: &mut Ui| if crate::pure::ON { ui.add(egui::Button::new(cancel).min_size(crate::pure::DIALOG_BUTTON)) } else { ui.button(cancel) };
     if cfg!(target_os = "macos") {
         let okb = draw_ok(ui);
-        (okb, ui.button(cancel))
+        (okb, cancel_button(ui))
     } else {
-        let cancelb = ui.button(cancel);
+        let cancelb = cancel_button(ui);
         (draw_ok(ui), cancelb)
     }
 }
 
 pub(crate) fn buttons(ui: &mut Ui, ok: &str) -> (bool, bool) {
     let mut r = (false, false);
+    if crate::pure::ON {
+        crate::pure::dialog_footer_rule(ui);
+    } else {
     ui.add_space(8.0);
+    }
     ui.horizontal(|ui| {
         ui.with_layout(crate::rtl::far_side(ui, egui::Align::Center), |ui| {
             // Enter and Escape belong to the Colors dialog while it is open above this one.
