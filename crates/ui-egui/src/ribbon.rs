@@ -117,7 +117,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     // Format) may be stored while the selection moved away, and a tab may have been hidden.
     let user_tabs = app.session.ribbon.tabs().into_owned();
     let mut tabs: Vec<(String, bool)> = vec![("File".to_string(), false)];
-    tabs.extend(user_tabs.iter().filter(|e| !e.hidden).map(|e| (e.name.clone(), e.custom)));
+    tabs.extend(user_tabs.iter().filter(|e| !e.hidden && !crate::pure::hides_tab(&e.name)).map(|e| (e.name.clone(), e.custom)));
     for ct in contextual_tabs(&app.session) {
         if ct == "Outlining" {
             tabs.insert(1.min(tabs.len()), (ct.to_string(), false));
@@ -182,7 +182,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                         .iter()
                         .zip(&labels)
                         .map(|((tab, custom), shown)| TabSpec {
-                            text_w: ui.ctx().fonts_mut(|f| f.layout_no_wrap(shown.to_string(), medium(12.5), t.text).size().x),
+                            text_w: ui.ctx().fonts_mut(|f| f.layout_no_wrap(shown.to_string(), medium(crate::pure::type_size(12.5)), t.text).size().x),
                             file: tab == "File",
                             active: *tab == app.ui.tab,
                             contextual: !custom && wordcraft_engine::ribbon::CONTEXTUAL_TABS.contains(&tab.as_str()),
@@ -197,28 +197,43 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                         ui.add_enabled_ui(app.has_document(), |ui| {
                             let (share_size, share_text) =
                                 if plan.buttons < 2 { (((share_w + 36.0).max(74.0), 24.0), true) } else { ((30.0, 24.0), false) };
-                            let (r, resp) = ui.allocate_exact_size(vec2(share_size.0, share_size.1), Sense::click());
-                            ui.painter().rect_filled(r, 4.0, if resp.hovered() { t.accent_text } else { t.accent });
+                            let pure_share = crate::pure::ON && app.services.host_share.is_some();
+                            let (r, resp) = if crate::pure::ON && !pure_share {
+                                // Pure edition without a host: no Share at all.
+                                ui.allocate_exact_size(vec2(0.0, share_size.1), Sense::hover())
+                            } else {
+                                ui.allocate_exact_size(vec2(share_size.0, share_size.1), Sense::click())
+                            };
+                            let (share_fill, share_ink) = crate::pure::share_colors(&t, &resp, pure_share);
+                            if crate::pure::ON {
+                                crate::pure::outlined(ui, r, &resp, &t, pure_share);
+                            } else {
+                                ui.painter().rect_filled(r, 4.0, share_fill);
+                            }
                             let rtl = crate::rtl::on();
                             let icon_x = if share_text { crate::rtl::lead_x(rtl, r, 14.0) } else { r.center().x };
                             icons::paint(
                                 ui.painter(),
                                 Rect::from_center_size(pos2(icon_x, r.center().y), vec2(14.0, 14.0)),
-                                "share",
-                                t.on_accent,
-                                t.on_accent,
+                                if crate::pure::ON && !pure_share { "" } else { "share" },
+                                share_ink,
+                                share_ink,
                             );
                             if share_text {
                                 ui.painter().text(
                                     pos2(crate::rtl::lead_x(rtl, r, 26.0), r.center().y),
                                     crate::rtl::lead_center(rtl),
-                                    share,
-                                    medium(12.0),
-                                    t.on_accent,
+                                    if crate::pure::ON && !pure_share { "" } else { share },
+                                    if crate::pure::ON { regular(12.0) } else { medium(12.0) },
+                                    share_ink,
                                 );
                             }
                             resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, share));
-                            if resp.on_hover_text(tl!("Export a copy to share (PDF, Word document)")).clicked() {
+                            if pure_share {
+                                if resp.on_hover_text(tl!("Share this document")).clicked() {
+                                    app.host_share();
+                                }
+                            } else if !crate::pure::ON && resp.on_hover_text(tl!("Export a copy to share (PDF, Word document)")).clicked() {
                                 let _ = app.run("ui.backstage", json!({"value": true, "page": "export"}));
                             }
                             ui.add_space(6.0);
@@ -298,11 +313,11 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                                     None => 1.0,
                                 };
                                 let shift = vec2(-(1.0 - entry) * TAB_ENTRY_SLIDE, 0.0);
-                                let color = (if contextual || active { t.accent_text } else { t.text }).gamma_multiply(entry);
+                                let color = crate::pure::tab_color(&t, active, contextual, if contextual || active { t.accent_text } else { t.text }).gamma_multiply(entry);
                                 if cut {
                                     let mut job = egui::text::LayoutJob::single_section(
                                         shown.to_string(),
-                                        egui::text::TextFormat::simple(if active { semibold(12.5) } else { medium(12.5) }, color),
+                                        egui::text::TextFormat::simple(if active { semibold(crate::pure::type_size(12.5)) } else { medium(crate::pure::type_size(12.5)) }, color),
                                     );
                                     job.wrap = egui::text::TextWrapping {
                                         max_width: (w - plan.pad).max(1.0),
@@ -317,13 +332,13 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                                         r.center() + shift,
                                         Align2::CENTER_CENTER,
                                         shown,
-                                        if active { semibold(12.5) } else { medium(12.5) },
+                                        if active { semibold(crate::pure::type_size(12.5)) } else { medium(crate::pure::type_size(12.5)) },
                                         color,
                                     );
                                 }
                                 let resp = if cut && ghost.is_none() { resp.on_hover_text(shown) } else { resp };
                                 if active {
-                                    let u = Rect::from_center_size(pos2(r.center().x + shift.x, r.max.y - 2.0), vec2(w - 16.0, 3.0));
+                                    let u = Rect::from_center_size(pos2(r.center().x + shift.x, r.max.y - 2.0), vec2(w - 16.0, if crate::pure::ON { 2.0 } else { 3.0 }));
                                     slide_underline(ui, tab, u, t.accent.gamma_multiply(entry), now, animate);
                                 }
                                 if resp.clicked() {
@@ -359,7 +374,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                                     r.center(),
                                     Align2::CENTER_CENTER,
                                     "»",
-                                    medium(12.5),
+                                    medium(crate::pure::type_size(12.5)),
                                     if holds_active { t.accent_text } else { t.text },
                                 );
                                 // "»" means nothing read aloud: the button says what it holds.

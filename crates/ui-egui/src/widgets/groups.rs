@@ -48,7 +48,8 @@ pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&
         let over = ui.rect_contains_pointer(area);
         // Position is part of identity because duplicate custom group names can appear in tabs.
         let lit = ui.ctx().animate_bool_responsive(ui.scope_id().with(("group_glow", id_title, position)), over);
-        if lit > 0.0 {
+        // Pure edition: no glow under a hovered group.
+        if lit > 0.0 && !crate::pure::ON {
             ui.painter().set(glow, group_glow(area, t.accent, lit));
         }
         title_row(

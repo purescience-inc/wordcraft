@@ -9,7 +9,7 @@ pub const CONTENT_H: f32 = 66.0;
 pub const LABEL_H: f32 = 18.0;
 
 /// Large buttons: centre of the 32 px icon, top of the first label line, and the pitch and
-/// height of a label line (`regular(11.5)`; a test checks the font's real line height).
+/// height of a label line (`regular(crate::pure::ribbon_label(11.5))`; a test checks the font's real line height).
 pub const BIG_ICON_Y: f32 = 18.0;
 
 pub const BIG_LABEL_Y: f32 = 36.0;
@@ -51,9 +51,9 @@ pub(crate) fn bg_if(ui: &Ui, r: Rect, resp: &Response, checked: bool, t: &Tokens
     } else {
         return;
     };
-    ui.painter().rect_filled(r, CornerRadius::same(4), fill);
+    ui.painter().rect_filled(r, CornerRadius::same(crate::pure::radius(4.0) as u8), fill);
     if checked {
-        ui.painter().rect_stroke(r, CornerRadius::same(4), Stroke::new(1.0, t.accent.linear_multiply(0.5)), egui::StrokeKind::Inside);
+        ui.painter().rect_stroke(r, CornerRadius::same(crate::pure::radius(4.0) as u8), Stroke::new(1.0, t.accent.linear_multiply(0.5)), egui::StrokeKind::Inside);
     }
 }
 
@@ -107,19 +107,19 @@ fn big_button(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str,
     let label = tl!(label);
     let t = Tokens::get(ui.ctx());
     let galley_w =
-        label.split('\n').map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x)).fold(0.0, f32::max);
+        label.split('\n').map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(crate::pure::ribbon_label(11.5)), t.text).size().x)).fold(0.0, f32::max);
     let w = (galley_w + 12.0).max(44.0);
     let (r, resp) = ui.allocate_exact_size(vec2(w, CONTENT_H), Sense::click());
     keytip_badge(ui, r, id, &label.replace('\n', " "));
     let on = enabled(app, id);
     bg_if(ui, r, &resp, checked, &t, on);
-    let ic = Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(32.0, 32.0));
+    let ic = Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(crate::pure::big_icon(32.0), crate::pure::big_icon(32.0)));
     let (c, a) = if on { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
     icons::paint(ui.painter(), ic, icon, c, a);
     let mut y = r.min.y + BIG_LABEL_Y;
     let lines: Vec<&str> = label.split('\n').collect();
     for (i, l) in lines.iter().enumerate() {
-        label_line(ui, r.center().x, y, l, regular(11.5), if on { t.text } else { t.text_disabled }, menu && i + 1 == lines.len());
+        label_line(ui, r.center().x, y, l, regular(crate::pure::ribbon_label(11.5)), if on { t.text } else { t.text_disabled }, menu && i + 1 == lines.len());
         y += LABEL_PITCH;
     }
     let resp = tooltip(app, resp, &label.replace('\n', " "), id);
@@ -149,18 +149,18 @@ pub fn small(ui: &mut Ui, app: &mut WordApp, icon: &str, label: Option<&str>, ti
     // A compact group (#662) shows only the icon; the tooltip keeps the name.
     let label = label.filter(|_| !crate::ribbon_fit::compact(ui.ctx()));
     let t = Tokens::get(ui.ctx());
-    let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 6.0).unwrap_or(0.0);
+    let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(crate::pure::ribbon_label(11.5)), t.text).size().x) + 6.0).unwrap_or(0.0);
     let (r, resp) = ui.allocate_exact_size(vec2(24.0 + text_w, 22.0), Sense::click());
     keytip_badge(ui, r, id, tip);
     let on = enabled(app, id);
     bg_if(ui, r, &resp, checked, &t, on);
     let rtl = crate::rtl::flows(ui);
-    let ic = Rect::from_center_size(pos2(crate::rtl::lead_x(rtl, r, 12.0), r.center().y), vec2(17.0, 17.0));
+    let ic = Rect::from_center_size(pos2(crate::rtl::lead_x(rtl, r, 12.0), r.center().y), vec2(crate::pure::small_icon(17.0), crate::pure::small_icon(17.0)));
     let (c, a) = if on { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
     icons::paint(ui.painter(), ic, icon, c, a);
     if let Some(l) = label {
         let at = pos2(crate::rtl::lead_x(rtl, r, 24.0), r.center().y);
-        ui.painter().text(at, crate::rtl::lead_center(rtl), l, regular(11.5), if on { t.text } else { t.text_disabled });
+        ui.painter().text(at, crate::rtl::lead_center(rtl), l, regular(crate::pure::ribbon_label(11.5)), if on { t.text } else { t.text_disabled });
     }
     let resp = tooltip(app, resp, tip, id);
     command_menu(&resp, app, id);
@@ -190,7 +190,7 @@ pub fn split(
     let on = enabled(app, id);
     bg_if(ui, r, &resp, checked, &t, on);
     bg_if(ui, ar, &aresp, false, &t, on);
-    let ic = Rect::from_center_size(r.center(), vec2(17.0, 17.0));
+    let ic = Rect::from_center_size(r.center(), vec2(crate::pure::small_icon(17.0), crate::pure::small_icon(17.0)));
     let (c, a) = if on { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
     icons::paint(ui.painter(), ic, icon, c, a);
     if let Some(sw) = swatch {
@@ -254,30 +254,30 @@ pub fn menu_button(ui: &mut Ui, app: &mut WordApp, options: MenuButtonOptions<'_
         let galley_w = label
             .unwrap_or("")
             .split('\n')
-            .map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x))
+            .map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(crate::pure::ribbon_label(11.5)), t.text).size().x))
             .fold(0.0, f32::max);
         let w = (galley_w + 22.0).max(44.0);
         let (r, resp) = ui.allocate_exact_size(vec2(w, CONTENT_H), Sense::click());
         keytip_badge(ui, r, "menu", tip);
         bg_if(ui, r, &resp, false, &t, on);
-        icons::paint(ui.painter(), Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(32.0, 32.0)), icon, c, a);
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(crate::pure::big_icon(32.0), crate::pure::big_icon(32.0))), icon, c, a);
         let lines: Vec<&str> = label.unwrap_or("").split('\n').collect();
         let mut y = r.min.y + BIG_LABEL_Y;
         for (i, l) in lines.iter().enumerate() {
-            label_line(ui, r.center().x, y, l, regular(11.5), text, i + 1 == lines.len());
+            label_line(ui, r.center().x, y, l, regular(crate::pure::ribbon_label(11.5)), text, i + 1 == lines.len());
             y += LABEL_PITCH;
         }
         resp
     } else {
-        let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 6.0).unwrap_or(0.0);
+        let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(crate::pure::ribbon_label(11.5)), t.text).size().x) + 6.0).unwrap_or(0.0);
         let (r, resp) = ui.allocate_exact_size(vec2(24.0 + text_w + 10.0, 22.0), Sense::click());
         keytip_badge(ui, r, "menu", tip);
         bg_if(ui, r, &resp, false, &t, on);
         let rtl = crate::rtl::flows(ui);
         let lead = |inset: f32| crate::rtl::lead_x(rtl, r, inset);
-        icons::paint(ui.painter(), Rect::from_center_size(pos2(lead(12.0), r.center().y), vec2(17.0, 17.0)), icon, c, a);
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(lead(12.0), r.center().y), vec2(crate::pure::small_icon(17.0), crate::pure::small_icon(17.0))), icon, c, a);
         if let Some(l) = label {
-            ui.painter().text(pos2(lead(24.0), r.center().y), crate::rtl::lead_center(rtl), l, regular(11.5), text);
+            ui.painter().text(pos2(lead(24.0), r.center().y), crate::rtl::lead_center(rtl), l, regular(crate::pure::ribbon_label(11.5)), text);
         }
         let arrow = pos2(crate::rtl::trail_x(rtl, r, 6.0), r.center().y);
         icons::paint(ui.painter(), Rect::from_center_size(arrow, vec2(DROPDOWN, DROPDOWN)), "dropdown", c, c);
