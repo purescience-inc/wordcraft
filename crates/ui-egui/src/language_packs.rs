@@ -802,7 +802,7 @@ pub(crate) fn add_language_window(app: &mut WordApp, ctx: &egui::Context) {
                                 ui.add(egui::Label::new(RichText::new(licence.as_str()).small()).truncate()).on_hover_text(licence_hover(pack));
                                 let source = pack.source_link();
                                 if !source.is_empty() {
-                                    ui.hyperlink_to(tl!("Source"), source).on_hover_text(shown(source, 300));
+                                    if crate::pure::ON { ui.label(tl!("Source")) } else { ui.hyperlink_to(tl!("Source"), source) }.on_hover_text(shown(source, 300));
                                 }
                             });
                             ui.horizontal(|ui| match progress(&pack.locale) {

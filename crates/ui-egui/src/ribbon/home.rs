@@ -375,9 +375,12 @@ pub(super) fn home(app: &mut WordApp, ui: &mut Ui) {
             });
         });
     });
-    group(ui, "Voice", None, app, |ui, app| {
-        big(ui, app, "dictate", "Dictate", "tools.dictate", json!({}), false);
-    });
+    // Pure edition: Dictate needs a speech service outside the page.
+    if !crate::pure::ON {
+        group(ui, "Voice", None, app, |ui, app| {
+            big(ui, app, "dictate", "Dictate", "tools.dictate", json!({}), false);
+        });
+    }
     group(ui, "Editor", None, app, |ui, app| {
         big(ui, app, "editor", "Editor", "review.spelling", json!({}), false);
     });

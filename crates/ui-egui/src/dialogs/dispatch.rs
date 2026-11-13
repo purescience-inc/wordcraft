@@ -1170,6 +1170,17 @@ fn about_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
         1 => crate::credits::contributors_ui(ui),
         2 => crate::credits::models_ui(ui),
         3 => crate::language_packs::about_tab(ui),
+        _ if crate::pure::ON => {
+            // Pure edition: what it is, what it is built on, the copyright and licence. No links.
+            let [name, built_on, files] = crate::pure::about_lines();
+            ui.label(egui::RichText::new(name).font(semibold(crate::pure::TYPE_HEADING)));
+            ui.label(built_on);
+            ui.add_space(6.0);
+            ui.label(tl!("Source code: github.com/storytold/wordcraft"));
+            ui.label(files);
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new(tl!("MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.")).small().weak());
+        }
         _ => {
             ui.label(egui::RichText::new(tl!("WordCraft")).font(semibold(22.0)));
             let build = option_env!("WORDCRAFT_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s)).unwrap_or(tl!("development build"));

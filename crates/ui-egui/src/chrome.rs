@@ -337,6 +337,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
                     // AutoSave switch: greyed out, with the reason as its tooltip, when AutoSave can't
                     // cover the document (#196, #176); clicking it then offers Save As where that helps.
+                    if !crate::pure::ON {
                     let block = app.autosave_block();
                     let on = app.autosaves();
                     let color = if block.is_some() { t.text_dim.gamma_multiply(0.6) } else { t.text_dim };
@@ -374,13 +375,15 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                         }
                     }
                     ui.add_space(8.0);
+                    }
                     // Hidden (#1945): neither the buttons nor the … menu; the title centres as before.
                     if app.ui.quick_access_toolbar {
                         quick_access(ui, app);
                     }
                     qat_end = if rtl { ui.min_rect().min.x } else { ui.min_rect().max.x };
                     ui.with_layout(crate::rtl::far_side(ui, egui::Align::Center), |ui| {
-                        // Account / community.
+                        // Account / community (upstream only: the Pure edition has neither).
+                        if !crate::pure::ON {
                         let (r, resp) = ui.allocate_exact_size(vec2(control_h, control_h), Sense::click());
                         ui.painter().circle_filled(r.center(), control_h / 2.0 - 1.0, t.accent);
                         resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!("Account")));
@@ -412,6 +415,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                             }
                             ui.add_space(8.0);
                         }
+                        }
                         search_box(app, ui, control_h);
                         right_start = if rtl { ui.min_rect().max.x } else { ui.min_rect().min.x };
                     });
@@ -421,21 +425,22 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
             // Centred title.
             let title = if !app.has_document() {
                 // No document open (#1129): the app's name alone.
-                "WordCraft".to_string()
+                crate::pure::app_name("WordCraft").to_string()
             } else {
                 format!(
                     "{} — {}",
                     crate::i18n::isolate(&app.title_stem()),
                     if app.session.dirty {
                         tl!("Edited")
-                    } else if app.session.path.is_some() {
+                    } else if app.session.path.is_some() || crate::pure::ON {
+                        // Pure edition: the host keeps the file, so a clean document is saved.
                         tl!("Saved")
                     } else {
                         tl!("Not saved")
                     }
                 )
             };
-            let font = TypeRung::Chrome.semibold();
+            let font = if crate::pure::ON { semibold(crate::pure::TYPE_TITLE) } else { TypeRung::Chrome.semibold() };
             let track = TypeRung::Chrome.tracking();
             let cx = full.center().x;
             let available = 2.0 * (cx - qat_end - 10.0).min(right_start - 10.0 - cx);
@@ -612,7 +617,13 @@ fn search_box(app: &mut WordApp, ui: &mut Ui, control_h: f32) {
     let (r, resp) = ui.allocate_exact_size(vec2(SEARCH_BOX_W, control_h), Sense::click());
     let ph = tl!("Search commands and help");
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, ph));
-    ui.painter().rect(r, 6.0, if resp.hovered() { t.input } else { t.ribbon }, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
+    ui.painter().rect(
+        r,
+        crate::pure::radius(6.0),
+        if resp.hovered() || crate::pure::ON { t.input } else { t.ribbon },
+        Stroke::new(1.0, if crate::pure::ON { if resp.hovered() { crate::pure::paper(t.dark).strong_line } else { t.border_strong } } else { t.border }),
+        egui::StrokeKind::Inside,
+    );
     icons::paint(
         ui.painter(),
         Rect::from_center_size(pos2(crate::rtl::lead_x(rtl, r, 16.0), r.center().y), vec2(16.0, 16.0)),
@@ -835,8 +846,13 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                     let missing = app.cached_missing_fonts(&l).0;
                     let count = missing.iter().filter(|f| !f.metric_compatible).count();
                     if count > 0 {
-                        let label = crate::i18n::tn(count as u64, "{n} font not installed", "{n} fonts not installed");
-                        let resp = st_icon(ui, Some("fontMissing"), &label).on_hover_text(tl!("Shown in substitute fonts. Click for details."));
+                        // Pure edition: the same facts without an alarm: a plain note, no warning sign.
+                        let label = if crate::pure::ON {
+                            crate::i18n::tn(count as u64, "{n} font substituted", "{n} fonts substituted")
+                        } else {
+                            crate::i18n::tn(count as u64, "{n} font not installed", "{n} fonts not installed")
+                        };
+                        let resp = st_icon(ui, if crate::pure::ON { None } else { Some("fontMissing") }, &label).on_hover_text(tl!("Shown in substitute fonts. Click for details."));
                         crate::rtl::menu(&resp).show(|ui| {
                             ui.set_min_width(260.0);
                             ui.label(egui::RichText::new(tl!("Not installed — shown as")).strong());
