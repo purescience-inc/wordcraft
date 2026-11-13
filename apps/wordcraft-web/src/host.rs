@@ -25,6 +25,9 @@
 //!     Export Page as PNG: `false`. They are copies; the document's file stays the same.
 //! - `wordcraft:dirty` whenever unsaved changes appear or go away, `wordcraft:failed` when the
 //!   app couldn't start.
+//! - `wordcraft:share` (to the host, Pure edition only): `{ version, name }`, the person pressed
+//!   Share on the document called `name`. Not one of `craft-web-host`'s messages, so this module
+//!   posts it itself, over the same two transports.
 //!
 //! In both host modes the host sends the document to edit, so no sample opens, saves are handed
 //! to the host rather than downloaded, the host guards leaving the page, and `?author=` names the
@@ -33,6 +36,7 @@
 use std::rc::Rc;
 
 use craft_web_host::web::{FileData, Host, Message};
+use wasm_bindgen::JsValue;
 use wordcraft_ui_egui::{Inbox, Services, WordApp};
 
 /// The app id in the host messages (`wordcraft:ready`).
@@ -50,6 +54,8 @@ const MAX_AUTHOR_CHARS: usize = 200;
 #[derive(Clone)]
 pub struct Bridge {
     host: Rc<Host>,
+    /// The app's canvas: where a page host hears `wordcraft:share` (see [`Self::post_share`]).
+    canvas: web_sys::EventTarget,
 }
 
 impl Bridge {
@@ -57,7 +63,7 @@ impl Bridge {
     /// `data-host="page"` on the canvas, an unframed `?host=parent` page (it stays the normal app
     /// with downloads), or a parent on another origin.
     pub fn detect(canvas: &web_sys::HtmlCanvasElement) -> Option<Self> {
-        Some(Self { host: Rc::new(Host::connect(APP, canvas)?) })
+        Some(Self { host: Rc::new(Host::connect(APP, canvas)?), canvas: canvas.clone().into() })
     }
 
     /// Hand saved and exported files to the host instead of downloading them, report unsaved
@@ -74,6 +80,47 @@ impl Bridge {
         // The crate does not repeat a state it already reported.
         let host = self.host.clone();
         services.on_dirty = Some(Box::new(move |dirty: bool| host.post_dirty(dirty)));
+        // Pure edition: Share belongs to the host. Without the feature the service stays unset.
+        if wordcraft_ui_egui::pure::ON {
+            let bridge = self.clone();
+            services.host_share = Some(Box::new(move |name: &str| {
+                if let Err(e) = bridge.post_share(name) {
+                    log::error!("couldn't tell the page to share {name}: {e}");
+                }
+            }));
+        }
+    }
+
+    /// `wordcraft:share`: the person pressed Share. To the same-origin parent as a `postMessage`
+    /// (`{ type, version, name }`), or to a page host as a `CustomEvent` of that name on the
+    /// canvas with `{ version, name }` as its detail, like `craft-web-host`'s own messages.
+    fn post_share(&self, name: &str) -> Result<(), String> {
+        let error = |e: JsValue| e.as_string().unwrap_or_else(|| format!("{e:?}"));
+        let kind = craft_web_host::message_type(APP, "share");
+        let name = craft_web_host::file_name(Some(name), "document");
+        let fields = js_sys::Object::new();
+        let set = |key: &str, value: &str| {
+            js_sys::Reflect::set(&fields, &JsValue::from_str(key), &JsValue::from_str(value))
+                .map(|_| ())
+                .map_err(|_| "couldn't build the message".to_string())
+        };
+        set("version", craft_web_host::VERSION)?;
+        set("name", &name)?;
+        match self.host.mode() {
+            craft_web_host::Mode::Parent => {
+                set("type", &kind)?;
+                let window = web_sys::window().ok_or("no window")?;
+                let parent = window.parent().map_err(error)?.ok_or("no parent window")?;
+                let origin = window.location().origin().map_err(error)?;
+                parent.post_message(&fields, &origin).map_err(error)
+            }
+            craft_web_host::Mode::Page => {
+                let init = web_sys::CustomEventInit::new();
+                init.set_detail(&fields);
+                let event = web_sys::CustomEvent::new_with_event_init_dict(&kind, &init).map_err(error)?;
+                self.canvas.dispatch_event(&event).map(|_| ()).map_err(error)
+            }
+        }
     }
 
     /// `?author=`: the host's name for the user signs comments and tracked changes.

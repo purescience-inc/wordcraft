@@ -45,6 +45,9 @@ pub struct Services {
     /// under its own name and format, as on the desktop, and a Save or Save As that keeps
     /// everything makes that name the document's file, so the next Save goes to it.
     pub host_save: Option<HostSaveFn>,
+    /// Pure edition, framed by a host: the person pressed Share. Called with the document's
+    /// name; the host shows its own sharing. `None` hides Share.
+    pub host_share: Option<Box<dyn Fn(&str)>>,
     /// Web: told whether the document has unsaved changes after each pass, for the browser's
     /// leave-page guard (`beforeunload` runs between frames and can't ask the app).
     pub on_dirty: Option<Box<dyn Fn(bool)>>,
