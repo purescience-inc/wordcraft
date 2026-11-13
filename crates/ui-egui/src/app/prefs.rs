@@ -101,7 +101,7 @@ impl WordApp {
     /// Whether animation effects are on: the Animation effects setting, where `System` follows
     /// what the system last reported (on when it reports nothing).
     pub fn animations_on(&self) -> bool {
-        self.ui.animations.enabled(self.system_animations)
+        !crate::pure::ON && self.ui.animations.enabled(self.system_animations)
     }
 
     /// What the system last said about its animation effects (`None`: it doesn't say).

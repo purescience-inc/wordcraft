@@ -8,6 +8,11 @@ description = "WordCraft egui front end (Word-style ribbon UI); swappable: nothi
 [lints]
 workspace = true
 
+[features]
+# The Pure edition (PureWriter): our names, palette and sizes, and the host's Share. Off by
+# default: without it this crate is upstream's app unchanged (see `src/pure.rs`).
+pure = []
+
 [dependencies]
 craft-ui = { git = "https://github.com/storytold/craft-libs", rev = "92d392cff132eaf53e13afff77f38b5c11b73aa0" }
 # Interface translations: lookup, fallback, plurals and system-locale matching over the craft-i18n

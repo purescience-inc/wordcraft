@@ -13,7 +13,11 @@ HERE="$ROOT/packaging/web"
 
 if [[ "${1:-}" != "--skip-build" ]]; then
   command -v trunk >/dev/null || { echo "error: trunk not found (cargo install trunk --locked)" >&2; exit 1; }
-  (cd "$ROOT/apps/wordcraft-web" && trunk build --release)
+  # CRAFT_WEB_FEATURES (e.g. "pure") turns on cargo features of the web shell; unset or empty
+  # builds the default app.
+  FEATURES=()
+  [[ -n "${CRAFT_WEB_FEATURES:-}" ]] && FEATURES=(--features "$CRAFT_WEB_FEATURES")
+  (cd "$ROOT/apps/wordcraft-web" && trunk build --release ${FEATURES[@]+"${FEATURES[@]}"})
 fi
 
 SITE="$ROOT/dist/web"
@@ -33,6 +37,12 @@ cp -R "$SITE/." "$WORK/$NAME/"
 cp "$HERE/_headers" "$HERE/.htaccess" "$WORK/$NAME/"
 cp "$HERE/README.md" "$WORK/$NAME/HOSTING.md"
 copy_docs "$WORK/$NAME"
+# The Pure edition's page names itself while the app loads (the packaged copy only; the source
+# page is upstream's).
+if [[ " ${CRAFT_WEB_FEATURES:-} " == *" pure "* ]]; then
+  sed -i.bak -e 's|<title>WordCraft</title>|<title>PureWriter</title>|' -e 's|Loading WordCraft|Loading PureWriter|' "$WORK/$NAME/index.html"
+  rm -f "$WORK/$NAME/index.html.bak"
+fi
 rm -f "$DIST/$NAME.zip"
 (cd "$WORK" && zip -qr9 "$DIST/$NAME.zip" "$NAME")
 echo "wrote $DIST/$NAME.zip"

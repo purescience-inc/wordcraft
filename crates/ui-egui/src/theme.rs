@@ -302,7 +302,7 @@ pub struct Tokens {
 
 impl Tokens {
     pub fn light() -> Self {
-        Tokens {
+        crate::pure::tokens(Tokens {
             dark: false,
             title_bar: Color32::from_rgb(0xF0, 0xF0, 0xF0),
             ribbon: Color32::from_rgb(0xF9, 0xF9, 0xF9),
@@ -364,10 +364,10 @@ impl Tokens {
             close_hover: Color32::from_rgb(0xC4, 0x2B, 0x1C),
             close_pressed: Color32::from_rgb(0xA6, 0x23, 0x16),
             on_close: Color32::WHITE,
-        }
+        })
     }
     pub fn dark() -> Self {
-        Tokens {
+        crate::pure::tokens(Tokens {
             dark: true,
             title_bar: Color32::from_rgb(0x1F, 0x1F, 0x1F),
             ribbon: Color32::from_rgb(0x29, 0x29, 0x29),
@@ -432,7 +432,7 @@ impl Tokens {
             close_hover: Color32::from_rgb(0xD6, 0x3C, 0x2C),
             close_pressed: Color32::from_rgb(0xB3, 0x30, 0x23),
             on_close: Color32::WHITE,
-        }
+        })
     }
     pub fn get(ctx: &egui::Context) -> Tokens {
         if ctx.global_style().visuals.dark_mode { Tokens::dark() } else { Tokens::light() }
@@ -837,6 +837,7 @@ pub fn apply(ctx: &egui::Context, appearance: Appearance) {
         o.fallback_theme = egui::Theme::Light;
         o.theme_preference = appearance.preference();
     });
+    crate::pure::style(ctx);
 }
 
 /// Turn egui's own animations on or off: hover and press fades, menus, tooltips and windows fading

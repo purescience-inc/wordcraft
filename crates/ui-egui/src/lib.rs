@@ -63,6 +63,7 @@ pub mod previews;
 pub mod print_page;
 pub mod printing;
 pub mod proofing_pane;
+pub mod pure;
 pub mod read_aloud;
 pub mod ribbon;
 pub mod ribbon_fit;
