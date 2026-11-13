@@ -60,7 +60,7 @@ fn back_chevron_c(band_min_x: f32, center_y: f32, fullscreen: bool, content_left
 /// link with it.
 fn bottom_links(app: &WordApp) -> Vec<(&'static str, &'static str)> {
     let mut links = vec![("About", "about")];
-    if app.ui.show_discord {
+    if app.ui.show_discord && !crate::pure::ON {
         links.push(("Discord community", "discord"));
     }
     links
@@ -70,6 +70,14 @@ fn bottom_links(app: &WordApp) -> Vec<(&'static str, &'static str)> {
 /// and Options pages work, and it handles Back, Escape, Save, Save As and Close routing.
 pub fn show(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
+    // Pure edition: no start screen (the host opens documents), and only our pages.
+    if crate::pure::ON {
+        if !app.has_document() {
+            app.ui.backstage = false;
+            return;
+        }
+        app.ui.backstage_page = crate::pure::page(&app.ui.backstage_page).to_string();
+    }
     // No document open (#1129): only the pages that open or create one, and Options.
     let has_document = app.has_document();
     if !has_document && !works_without_document(&app.ui.backstage_page) {
@@ -84,6 +92,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         .show(ui, |ui| {
             // Right to left the navigation is on the right, away from the macOS traffic lights.
             let rtl = crate::rtl::on();
+            crate::pure::nav_edge(ui, rtl);
             let back = if mac {
                 // macOS (#222): the Backstage covers the title bar, so its top band is the title
                 // bar: the back button sits beside the traffic lights, centred with them and as far
@@ -104,8 +113,8 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     ui.painter(),
                     Rect::from_center_size(c, vec2(18.0, 18.0)),
                     if rtl { "chevronRight" } else { "chevronLeft" },
-                    egui::Color32::WHITE,
-                    egui::Color32::WHITE,
+                    crate::pure::nav_ink(&t, egui::Color32::WHITE),
+                    crate::pure::nav_ink(&t, egui::Color32::WHITE),
                 );
                 resp
             } else {
@@ -119,8 +128,8 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     ui.painter(),
                     Rect::from_center_size(c, vec2(18.0, 18.0)),
                     if rtl { "chevronRight" } else { "chevronLeft" },
-                    egui::Color32::WHITE,
-                    egui::Color32::WHITE,
+                    crate::pure::nav_ink(&t, egui::Color32::WHITE),
+                    crate::pure::nav_ink(&t, egui::Color32::WHITE),
                 );
                 resp
             };
@@ -130,18 +139,19 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 app.canvas.want_focus = true;
             }
             ui.add_space(if mac { 12.0 } else { 6.0 });
-            for (id, label, icon) in PAGES {
+            for (id, label, icon) in PAGES.into_iter().filter(|(id, ..)| !crate::pure::hides_page(id)) {
                 // No document open (#1129): Info, Save, Save As, Print and Export are greyed out.
                 let on = has_document || works_without_document(id);
                 let (r, resp) = ui.add_enabled_ui(on, |ui| ui.allocate_exact_size(vec2(200.0, 38.0), Sense::click())).inner;
                 resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, on, tl!(label)));
                 let active = app.ui.backstage_page == id;
                 if active {
-                    ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(46));
+                    ui.painter().rect_filled(r, 0.0, crate::pure::nav_chosen(&t, 46));
                 } else if on && resp.hovered() {
-                    ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
+                    ui.painter().rect_filled(r, 0.0, crate::pure::nav_hover(&t, 26));
                 }
-                let ink = if on { egui::Color32::WHITE } else { egui::Color32::from_white_alpha(110) };
+                let ink = if on { crate::pure::nav_ink(&t, egui::Color32::WHITE) } else { crate::pure::nav_ink_off(&t, 110) };
+                crate::pure::nav_marks(ui, r, active, rtl);
                 icons::paint(
                     ui.painter(),
                     Rect::from_center_size(pos2(crate::rtl::lead_x(rtl, r, 31.0), r.center().y), vec2(18.0, 18.0)),
@@ -153,7 +163,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     pos2(crate::rtl::lead_x(rtl, r, 52.0), r.center().y),
                     crate::rtl::lead_center(rtl),
                     tl!(label),
-                    if active { semibold(14.0) } else { medium(14.0) },
+                    if active { semibold(crate::pure::type_size(14.0).min(if crate::pure::ON { 13.0 } else { 14.0 })) } else if crate::pure::ON { regular(13.0) } else { medium(14.0) },
                     ink,
                 );
                 if on
@@ -171,10 +181,10 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     let (r, resp) = ui.allocate_exact_size(vec2(200.0, 32.0), Sense::click());
                     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), tl!(label)));
                     if resp.hovered() {
-                        ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
+                        ui.painter().rect_filled(r, 0.0, crate::pure::nav_hover(&t, 26));
                     }
                     let at = pos2(crate::rtl::lead_x(rtl, r, 22.0), r.center().y);
-                    ui.painter().text(at, crate::rtl::lead_center(rtl), tl!(label), regular(13.0), egui::Color32::WHITE);
+                    ui.painter().text(at, crate::rtl::lead_center(rtl), tl!(label), regular(13.0), crate::pure::nav_ink(&t, egui::Color32::WHITE));
                     if resp.clicked() {
                         if id == "discord" {
                             let _ = app.run("ui.discord", json!({}));
@@ -272,6 +282,12 @@ pub(crate) fn go_to_page(app: &mut WordApp, id: &str) {
         return;
     }
     match id {
+        // Pure edition: Save asks the host to save now; the host has the file.
+        "save" if crate::pure::ON => {
+            let _ = app.run("file.save", json!({}));
+            app.ui.backstage = false;
+            app.canvas.want_focus = true;
+        }
         // A document without a file goes to the Save As page (as in Word) instead
         // of `file.save`, which would also open the native Save As dialog.
         // In the browser a save is a download, so it saves right away.
@@ -305,7 +321,7 @@ fn works_without_document(page: &str) -> bool {
 }
 
 fn heading(ui: &mut Ui, s: &str) {
-    ui.label(egui::RichText::new(tl!(s)).font(semibold(26.0)));
+    ui.label(egui::RichText::new(tl!(s)).font(semibold(crate::pure::type_size(26.0))));
     ui.add_space(16.0);
 }
 

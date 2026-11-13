@@ -249,9 +249,13 @@ fn general(app: &mut WordApp, ui: &mut Ui) {
     {
         let _ = app.run("view.darkMode", json!({"value": dark_page}));
     }
-    ui.checkbox(&mut app.ui.show_discord, tl!("Show the community button in the title bar"));
+    if !crate::pure::ON {
+        ui.checkbox(&mut app.ui.show_discord, tl!("Show the community button in the title bar"));
+    }
     default_app_button(app, ui);
     ui.add_space(8.0);
+    // Pure edition: the host opens documents; there is no Start screen to choose.
+    if !crate::pure::ON {
     section(ui, "Start-up");
     let mut start = app.ui.start_screen;
     if ui
@@ -264,6 +268,7 @@ fn general(app: &mut WordApp, ui: &mut Ui) {
         let _ = app.run("ui.startScreen", json!({"value": start}));
     }
     ui.add_space(8.0);
+    }
     section(ui, "Personalize");
     crate::rtl::Table::new("options_user").columns(2).spacing(vec2(8.0, 6.0)).show(ui, |t| {
         t.row(|r| {
@@ -495,6 +500,8 @@ fn custom_dictionary(app: &mut WordApp, ui: &mut Ui) {
 }
 
 fn save(app: &mut WordApp, ui: &mut Ui) {
+    // Pure edition: the host saves; there is no AutoSave to choose.
+    if !crate::pure::ON {
     section(ui, "Save documents");
     // The browser can't write to the user's files, so AutoSave can't be turned on there (#176).
     let browser = app.autosave_block() == Some(crate::AutoSaveBlock::Browser);
@@ -508,6 +515,7 @@ fn save(app: &mut WordApp, ui: &mut Ui) {
     }
     note(ui, "AutoSave writes your changes to the file a moment after you stop typing.");
     ui.add_space(8.0);
+    }
     // The open document's `file.privacyOptions` (#1062): saved with it, honoured when it is saved.
     section(ui, "Privacy for this document");
     let settings = &app.session.doc.settings;

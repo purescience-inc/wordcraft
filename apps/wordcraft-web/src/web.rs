@@ -186,6 +186,9 @@ impl eframe::App for WebShell {
         if ui.ctx().current_pass_index() == 0 {
             let ctx = ui.ctx().clone();
             let dropped = ctx.input_mut(|i| std::mem::take(&mut i.raw.dropped_files));
+            // Pure edition, hosted: the host decides which document its tab shows, so a file
+            // dropped on the frame is not opened beside it (and then saved over the tab's file).
+            let dropped = if wordcraft_ui_egui::pure::ON && self.app.services.host_save.is_some() { Vec::new() } else { dropped };
             for f in dropped {
                 let inbox = self.inbox.clone();
                 let ctx = ctx.clone();
